@@ -6,7 +6,7 @@
 </p>
 
 ## How to use:
-###### See Releases for download. Otherwise compile as a .NET Core app.
+###### See [Releases](https://github.com/petar-staynov/BitwardenToChromePasswordConverter/releases "Releases") for download. Otherwise compile as a .NET Core app.
 #### Export your BitWarden passwords to a .csv file
 - Go to BitWarden -> Settings -> Export Vault
 - Select ".csv" as file format
