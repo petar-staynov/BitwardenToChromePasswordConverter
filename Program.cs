@@ -14,12 +14,16 @@ namespace BitwardenToChromePasswordConverter
             {
                 try
                 {
-                    Console.BackgroundColor = ConsoleColor.White;
-                    Console.ForegroundColor = ConsoleColor.Black;
-                    Console.WriteLine("Please enter the path to your passwords .csv file");
-                    Console.WriteLine("Example: \"C:\\Users\\user\\Downloads\\passwords.csv\"");
-                    Console.ResetColor();
+                    Console.WriteLine(
+                        "Rename your Bitwarden passwords .csv file to \"passwords.csv\", place it in your C: drive and press ENTER");
+                    Console.WriteLine("Alternatively your can manually enter the path to your .csv file below");
+                    Console.WriteLine("Example: \"C:\\Users\\user\\Desktop\\bitwarden_export.csv\"");
                     string filePath = Console.ReadLine();
+
+                    if (filePath == "")
+                    {
+                        filePath = "C:\\passwords.csv";
+                    }
 
                     string fileLocationDir = filePath.Substring(0, filePath.LastIndexOf('\\'));
                     string fileNameWithExtension = filePath.Split('\\').Last();
@@ -29,66 +33,71 @@ namespace BitwardenToChromePasswordConverter
 
                     if (fileExtension != "csv")
                     {
-                        ThrowError(new Exception(), "Invalid file extension. Must be .csv");
-                        continue;
+                        throw new Exception("ERROR: Invalid file extension. Must be .csv");
                     }
 
+                    Console.WriteLine("Processing passwords...");
                     using (var reader = new StreamReader(filePath))
                     {
                         StringBuilder outputCsv = new StringBuilder();
                         outputCsv.AppendLine(@"name,url,username,password");
 
+                        List<string?> headers = new List<string?>();
+                        int indexOfName = 0;
+                        int indexOfUrl = 0;
+                        int indexOfUsername = 0;
+                        int indexOfPassword = 0;
 
                         int lineNumber = 0;
                         while (!reader.EndOfStream)
                         {
-                            var line = reader.ReadLine();
-                            lineNumber++;
+                            // Read properties from line 0
+                            string? line = reader.ReadLine();
+                            string?[] values = line.Split(',');
 
-                            //Skip first line
-                            if (lineNumber == 1) continue;
+                            if (lineNumber == 0)
+                            {
+                                headers = values.ToList();
+                                indexOfName = headers.IndexOf("name");
+                                indexOfUrl = headers.IndexOf("login_uri");
+                                indexOfUsername = headers.IndexOf("login_username");
+                                indexOfPassword = headers.IndexOf("login_password");
 
-                            /*
-                             BitWarden csv format
-                            0 - folder,
-                            1 - favorite,
-                            2 - type,
-                            3 - name,
-                            4 - notes,
-                            5 - fields,
-                            6 - login_uri,
-                            7 - login_username,
-                            8 - login_password,
-                            9 - login_totp
-                            */
-                            var values = line.Split(',');
+                                lineNumber++;
+                                continue;
+                            }
 
-                            var folder = values[0];
-                            var favourite = values[1];
-                            var type = values[2];
-                            var name = values[3];
-                            var notes = values[4];
-                            var fields = values[5];
-                            var uri = values[6];
-                            var username = values[7];
-                            var password = values[8];
-                            var otp = values[9];
+                            // Skip android logins
+                            if (line.Contains("android://"))
+                            {
+                                continue;
+                            }
+
+                            if ((indexOfName + indexOfUrl + indexOfUsername + indexOfPassword) == 0)
+                            {
+                                throw new Exception("Invalid password file format. Please contact the developer!");
+                            }
+
+                            var name = values[indexOfName];
+                            var uri = values[indexOfUrl];
+                            var username = values[indexOfUsername];
+                            var password = values[indexOfPassword];
 
                             string chromeCsvLine = $"{name},{uri},{username},{password}";
-                            /*
-                             Chrome csv format
-                             0 - name,
-                             1 - url,
-                             2 - username,
-                             3 - password
-                             */
+
                             outputCsv.AppendLine(chromeCsvLine);
+                            lineNumber++;
+                            Console.WriteLine(name);
                         }
 
+                        Console.WriteLine("Processing finished!");
+                        Console.WriteLine("");
+
+                        string timeStamp = DateTime.Now.ToString("yyyyMMddHHmmss");
 
                         string outputCsvString = outputCsv.ToString();
 
-                        string outputFileName = $"chrome_{fileName}.csv";
+                        string outputFileName = $"BitwardenToChromePasswords_{timeStamp}.csv";
                         string outputFilePath = $"{fileLocationDir}\\{outputFileName}";
                         using (StreamWriter writetext = new StreamWriter(outputFilePath))
                         {
@@ -107,16 +116,32 @@ namespace BitwardenToChromePasswordConverter
                         return;
                     }
                 }
-                catch (ArgumentOutOfRangeException e)
+                catch (UnauthorizedAccessException e)
                 {
-                    ThrowError(e,
-                        "Make sure that the input file location is in the correct format as shown in the example!");
-                    continue;
+                    Console.WriteLine("ERROR: Cannot write output file. Please run the program as an administrator!");
+                    Console.WriteLine("Press any key to exit!");
+
+                    if (Console.ReadKey().Key != null)
+                    {
+                        return;
+                    }
                 }
                 catch (Exception e)
                 {
-                    ThrowError(e, "");
-                    continue;
+                    if (!string.IsNullOrEmpty(e.Message))
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                    else
+                    {
+                        Console.WriteLine("ERROR: File not found, please enter a valid path!");
+                        Console.WriteLine("Press any key to try again!");
+                    }
+
+                    if (Console.ReadKey().Key != null)
+                    {
+                        Console.Clear();
+                    }
                 }
             }
         }
